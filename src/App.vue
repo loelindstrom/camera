@@ -52,12 +52,12 @@ onBeforeUnmount(() => {
 }
 
 .push-button-container {
-  width: 15%;
-  height: 15%;
-  display: block;
-  padding: 15px;
-  /* margin: auto; */
-  margin-left: 70%;
+  margin-left: 85%;
+}
+
+.push-button {
+  width: 100px;
+  height: 100px;
 }
 
 .camera-lens {
