@@ -9,25 +9,25 @@
 </template>
 
 <style scoped>  
+
 .button-side {
+    /* width: 70px;
+    height: 70px; */
+    border: 0;
     background: hsl(40deg 100% 32%);
     border-radius: 50%;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    outline-offset: 4px;
 }
 .button-top {
     display: block;
-    padding: 10% 15%;
+    /* width: 70px;
+    height: 70px; */
     border-radius: 50%;
-    font-size: 1.25rem;
     background: hsl(45deg 100% 47%);
     color: white;
-    transform: translateY(-6px);
+    scale: 0.9;
 }
 
-.button-side:active .button-top {
-    transform: translateY(-2px);
+.button-top:active {
+    transform: scale(0.95);
 }
 </style>
