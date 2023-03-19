@@ -153,7 +153,7 @@ function uploadFile(blob) {
 <template>
   <div class="camera">
     <div class="camera-lens">
-      <video :srcObject="stream" ref="video" autoplay></video>
+      <video :srcObject="stream" ref="video" id="video" autoplay></video>
     </div>
     <div class="push-button-container">
       <PushButton @click.native="takePictureAndUpload" class="push-button" />
@@ -211,6 +211,10 @@ function uploadFile(blob) {
   height: 30%;
   margin: auto;
   padding: 1%;
+}
+
+.camera-lens #video {
+  transform: scale(1.8, 1.8) rotate(270deg);
 }
 
 .push-button-container {
