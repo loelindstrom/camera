@@ -196,6 +196,14 @@ function uploadFile(blob) {
     height:100vw;
     width:100vh;
   }
+
+  .camera-lens #video {
+    transform: scale(1.8, 1.8) rotate(270deg);
+  }
+
+  #canvas {
+    display: none;
+  }
 }
 
 #app {
@@ -213,10 +221,6 @@ function uploadFile(blob) {
   padding: 1%;
 }
 
-.camera-lens #video {
-  transform: scale(1.8, 1.8) rotate(270deg);
-}
-
 .push-button-container {
   margin-left: 85%;
   height: auto;
@@ -230,10 +234,6 @@ function uploadFile(blob) {
 .canvas-container {
   height: auto;
   /* display: none; */
-}
-
-#canvas {
-  display: none;
 }
 
 .output {
