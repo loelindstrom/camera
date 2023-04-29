@@ -76,7 +76,7 @@ function takePictureAndUpload() {
   context.drawImage(video.value, 0, 0, stream_width, stream_height);  
   
   canvas.value.toBlob(async (blob) => {
-    await uploadFile(blob, folder_id, "new-fancy-name2", accessToken, loading);
+    await uploadFile(blob, folder_id, "photo", accessToken, loading);
   });
 }
 </script>
