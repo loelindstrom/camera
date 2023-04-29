@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import PushButton from "./components/PushButton.vue";
+import { parseQueryString } from "./func/parseQueryString.js";
+import { generateBody } from "./func/postToGetToken.js";
+import { uploadFile } from "./func/uploadFile.js";
 
 const stream = ref(null)
 const constraints = {
@@ -12,7 +15,7 @@ const constraints = {
 }
 
 onMounted(async () => {
-  stream.value = await navigator.mediaDevices.getUserMedia(constraints)
+  stream.value = await navigator.mediaDevices.getUserMedia(constraints);
 })
 
 onBeforeUnmount(() => {
@@ -21,57 +24,43 @@ onBeforeUnmount(() => {
 
 const canvas = ref(null);
 const video = ref(null);
-const count = ref(3)
-const params = new Proxy(new URLSearchParams(window.location.search), {
-  get: (searchParams, prop) => searchParams.get(prop),
-});
+const count = ref(3);
+const loading = ref(false);
+const isMasked = ref(false);
+
+let { client_id, client_secret, refresh_token, folder_id } = parseQueryString();
 
 let accessToken;
-let expires_in;
-initAccessTokenAndExpiresIn();
+postToGetToken(client_id, client_secret, refresh_token);
 
-function initAccessTokenAndExpiresIn() {
-  var details = getRequestDetails();
-  var formBody = [];
-  for (var property in details) {
-  var encodedKey = encodeURIComponent(property);
-  var encodedValue = encodeURIComponent(details[property]);
-  formBody.push(encodedKey + "=" + encodedValue);
-  }
-  formBody = formBody.join("&");
+function postToGetToken(client_id, client_secret, refresh_token) {
+    var formBody = generateBody(client_id, client_secret, refresh_token);
 
-  // fetch('https://accounts.google.com/o/oauth2/token', {
-  fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-    },
-    body: formBody
-  })
-  .then(response => response.json())
-  .then(json => {
+    fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+        },
+        body: formBody
+    })
+    .then(response => response.json())
+    .then(json => {
       accessToken = json.access_token;
-      expires_in = json.expires_in;
-      console.log(accessToken);
-      console.log(expires_in);
-  });
+      setTimeout(() => postToGetToken(client_id, client_secret, refresh_token), json.expires_in*1000);
+    });
 }
 
-function getRequestDetails() {
-  return {
-      "client_id": params.client_id,
-      "client_secret": params.client_secret,
-      "grant_type":"refresh_token",
-      "refresh_token": params.refresh_token,
-  };
-}
-
-// count = 3;
 function takePictureAndUpload() {
   if (count.value <= 0) {
     return;
   }
   count.value--;
+
+  loading.value = true;
+  isMasked.value = true;
+  setTimeout(() => {
+    isMasked.value = false;
+  }, 100);
 
   var context = canvas.value.getContext('2d');
   let stream_settings = stream.value.getVideoTracks()[0].getSettings();
@@ -86,73 +75,17 @@ function takePictureAndUpload() {
   canvas.value.height = stream_height;
   context.drawImage(video.value, 0, 0, stream_width, stream_height);  
   
-  // data = canvas.value.toDataURL('image/png');
-  // photo.value.setAttribute('src', data);
-
-  canvas.value.toBlob((blob) => {
-    uploadFile(blob);
+  canvas.value.toBlob(async (blob) => {
+    await uploadFile(blob, folder_id, "new-fancy-name2", accessToken, loading);
   });
 }
-
-function uploadFile(blob) {
-  // const file = document.getElementById("file-upload");
-  const file = blob;
-  let contentType = "image/png";
-  // Load file and upload it
-  if (contentType) {
-    const reader = new FileReader();
-
-    const boundary = 'part-divider';
-    const delimiter = "\r\n--" + boundary + "\r\n";
-    const close_delim = "\r\n--" + boundary + "--";
-    reader.addEventListener("load", async (event) => {
-      const bytes = event.target.result;
-
-      var fileMetadata = {
-        'name': "some-file",
-        "parents": ["1Y7CNMQQnzu_jtzcbbsy0wWlT8KJnI3gs"]
-      };
-
-      var multipartRequestBody =
-        delimiter +
-        'Content-Type: application/json\r\n\r\n' +
-        JSON.stringify(fileMetadata) +
-        delimiter +
-        'Content-Type: ' + contentType + '\r\n\r\n' +
-        bytes +
-        close_delim;
-      
-      let response = await fetch(
-      // `https://www.googleapis.com/upload/drive/v3/files?uploadType=media`,
-      `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`,
-      {
-          method: "POST",
-          headers: {
-              "Content-Type": contentType,
-              // "Content-Type": "multipart/related; boundary="+delimiter, 
-              Authorization: `Bearer ${accessToken}`,
-          },
-          body: bytes,
-          // body: multipartRequestBody,
-      }
-      );
-      console.log(response);
-      if (response.ok) {
-        alert(`Photo was sent! :)`);
-        
-      } else {
-        alert(`Photo was not sent! :(`);
-      }
-    });
-    
-    reader.readAsArrayBuffer(file);
-  }
-};
 </script>
 
 <template>
   <div class="camera">
-    <div class="camera-lens">
+    <!-- <div class="camera-lens masked-element"> -->
+      <div :class="['camera-lens', { 'masked-element': isMasked }]">
+      
       <video :srcObject="stream" ref="video" id="video" autoplay></video>
     </div>
     <div class="push-button-container">
@@ -161,11 +94,12 @@ function uploadFile(blob) {
     <div class="canvas-container">
       <canvas ref="canvas" id="canvas"> </canvas>
       <div class="counter">
-        <h1>{{ count }} photos left</h1>
+        <h1>{{ count }} left</h1>
+        <div v-if="loading" class="spinner">
+          <div class="spinner-inner"></div>
+        </div>
+        <h1 v-else="loading">✓</h1>
       </div>
-      <!-- <div class="output">
-        <img ref="photo" id="photo" alt="The screen capture will appear here." />
-      </div> -->
     </div>
   </div>
 </template>
@@ -183,6 +117,7 @@ function uploadFile(blob) {
   height: 100%;
   width: 100%;
   padding: 0%;
+  overflow: hidden;
 }
 
 @media only screen and (max-width: 550px) {
@@ -200,10 +135,10 @@ function uploadFile(blob) {
   .camera-lens #video {
     transform: scale(1.8, 1.8) rotate(270deg);
   }
+}
 
-  #canvas {
-    display: none;
-  }
+#canvas {
+  display: none;
 }
 
 #app {
@@ -221,8 +156,24 @@ function uploadFile(blob) {
   padding: 1%;
 }
 
+.masked-element {
+  position: relative;
+  z-index: 1;
+}
+
+.masked-element::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  background-color: rgba(255, 255, 255, 0.585);
+}
+
 .push-button-container {
-  margin-left: 85%;
+  margin-left: 80%;
   height: auto;
 }
 
@@ -246,10 +197,39 @@ function uploadFile(blob) {
   width: 17%;
   height: 17%;
   margin: auto;
+
 }
 
 .counter h1 {
   text-align: center;
+  color: black;
+}
+
+.spinner {
+  display: inline-block;
+  position: relative;
+  width: 100%;
+  height: 40px;
+}
+
+.spinner-inner {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  margin-top: -15px;
+  margin-left: -15px;
+  border-radius: 50%;
+  border: 3px solid #000000;
+  border-top-color: #b2b2b2b9;
+  animation: spinner-animation 1.2s linear infinite;
+}
+
+@keyframes spinner-animation {
+  to {transform: rotate(360deg);}
 }
 
 </style>
